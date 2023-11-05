@@ -45,7 +45,7 @@ def calculate_accuracy(predictions, labels):
     # numpy creates a boolean array with the same size as the prediction and label vectors
     # if the prediction and label pair is equal, the corresponding index in the boolean array will be True, otherwise False
     accuracy_list = torch.argmax(predictions,dim=1) == torch.argmax(labels, dim=1)
-    accuracy = torch.mean(accuracy_list.float())*100
+    accuracy = -torch.mean(accuracy_list.float())*100
     return accuracy
 
 
