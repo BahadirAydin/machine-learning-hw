@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import pickle
 import matplotlib
-matplotlib.use('Qt5Agg')
+# matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
 
