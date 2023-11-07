@@ -1,4 +1,3 @@
-from ctypes import BigEndianStructure
 import torch
 import torch.nn as nn
 import numpy as np
@@ -161,29 +160,33 @@ class Trainer:
                             ):
                                 best_mean = validation_mean
                                 best_confidence_interval = confidence_interval
-                                best_model = [
-                                    epoch,
-                                    batch_size,
-                                    learning_rate,
-                                    activation_function,
-                                    hidden_layer_size,
-                                ]
-                            self.results.append(
-                                {
+                                best_model = {
                                     "epoch": epoch,
                                     "batch_size": batch_size,
                                     "learning_rate": learning_rate,
                                     "activation_function": activation_function,
                                     "hidden_layer_sizes": hidden_layer_size,
+                                }
+
+                            activation_function_str = "ReLU" if activation_function == nn.ReLU() else "Sigmoid"
+                            self.results.append(
+                                {
+                                    "epoch": epoch,
+                                    "batch_size": batch_size,
+                                    "learning_rate": learning_rate,
+                                    "activation_function_str": activation_function_str,
+                                    "activation_function": activation_function,
+                                    "hidden_layer_sizes": hidden_layer_size,
                                     "validation_mean": validation_mean,
                                     "validation_std": validation_std,
+                                    "validation_confidence_interval": confidence_interval,
                                 }
                             )
                             print(
                                 "Validation accuracy is: {}\n".format(validation_mean)
                             )
         print("Best model paremeters are: {}".format(best_model))
-        network = self.train(*best_model)
+        network = self.train(best_model["epoch"], best_model["batch_size"], best_model["learning_rate"], best_model["activation_function"], best_model["hidden_layer_sizes"])
         test_predictions = self.test(network)
         test_accuracy = self.calculate_accuracy(test_predictions, y_test)
         print("Test accuracy is: {}".format(test_accuracy))
@@ -192,13 +195,18 @@ class Trainer:
         torch.save(network.state_dict(), filename)
         filename = "winning_model.json"
         with open(filename, "w") as f:
-            best_model["test_accuracy"] = test_accuracy
-            best_model["validation_mean"] = best_mean
+            best_model["test_accuracy"] = float(test_accuracy.item())
+            best_model["validation_mean"] = float(best_mean)
             best_model["validation_confidence_interval"] = best_confidence_interval
+            del best_model["activation_function"]
             json.dump(best_model, f, indent=4)
 
         filename = "results.json"
         with open(filename, "w") as f:
+            for result in self.results:
+                result["validation_mean"] = float(result["validation_mean"])
+                result["validation_std"] = float(result["validation_std"])
+                del result["activation_function"]
             json.dump(self.results, f, indent=4)
 
         print("The program is finished. The results are saved in results.txt file.")
@@ -231,9 +239,10 @@ y_test = torch.from_numpy(y_test).to(torch.long)
 hidden_layer_sizes = [(8,), (16,), (8, 8)]
 activation_functions = [nn.ReLU(), nn.Sigmoid()]  # nn.Tanh()
 learning_rates = [0.01, 0.001]
-num_epochs = [20, 40]
-batch_sizes = [32]
+num_epochs = [15, 30]
+batch_sizes = [64]
 # Total there are 3 * 2 * 2 * 2 * 1 = 24 hyperparameter configurations
+
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
