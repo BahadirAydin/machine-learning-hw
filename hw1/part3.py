@@ -135,7 +135,7 @@ class Trainer:
                                     hidden_layer_size,
                                 )
                             )
-                            for i in range(10):
+                            for _ in range(10):
                                 network = self.train(
                                     epoch,
                                     batch_size,
@@ -187,22 +187,32 @@ class Trainer:
                                 "Validation accuracy is: {}\n".format(validation_mean)
                             )
         print("Best model paremeters are: {}".format(best_model))
-        network = self.train(
-            best_model["epoch"],
-            best_model["batch_size"],
-            best_model["learning_rate"],
-            best_model["activation_function"],
-            best_model["hidden_layer_sizes"],
-        )
-        test_predictions = self.test(network)
-        test_accuracy = self.calculate_accuracy(test_predictions, y_test)
-        print("Test accuracy is: {}".format(test_accuracy))
+        test_results = []
+        for i in range(10):
+            network = self.train(
+                best_model["epoch"],
+                best_model["batch_size"],
+                best_model["learning_rate"],
+                best_model["activation_function"],
+                best_model["hidden_layer_sizes"],
+            )
+            if i == 0:
+                filename = "winning_model.pt"
+                torch.save(network.state_dict(), filename)
+            test_predictions = self.test(network)
+            test_accuracy = self.calculate_accuracy(test_predictions, y_test)
+            test_results.append(test_accuracy)
 
-        filename = "winning_model.pt"
-        torch.save(network.state_dict(), filename)
+        test_accuracy_mean = np.mean(test_results)
+        test_accuracy_std = np.std(test_results)
+        test_confidence_interval = self.calculate_confidence_interval(test_results)
+        print("Test accuracy is: {}".format(test_accuracy_mean))
+
         filename = "winning_model.json"
         with open(filename, "w") as f:
-            best_model["test_accuracy"] = float(test_accuracy.item())
+            best_model["test_accuracy_mean"] = float(test_accuracy_mean)
+            best_model["test_accuracy_std"] = float(test_accuracy_std)
+            best_model["test_confidence_interval"] = test_confidence_interval
             best_model["validation_mean"] = float(best_mean)
             best_model["validation_confidence_interval"] = best_confidence_interval
             del best_model["activation_function"]
@@ -216,7 +226,7 @@ class Trainer:
                 del result["activation_function"]
             json.dump(self.results, f, indent=4)
 
-        print("The program is finished. The results are saved in results.txt file.")
+        print("The program is finished. The results are saved.")
 
 
 x_train, y_train = pickle.load(open("data/mnist_train.data", "rb"))
