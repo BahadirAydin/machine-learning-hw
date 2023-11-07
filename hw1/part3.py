@@ -1,12 +1,14 @@
+from ctypes import BigEndianStructure
 import torch
 import torch.nn as nn
 import numpy as np
 import pickle
+import copy
+import json
 
 
 # HYPERPARAMETERS IN THIS PART:
-# 1. Number of hidden layers
-# 2. Number of neurons in each hidden layer
+# 1. Number of hidden layers 2. Number of neurons in each hidden layer
 # 3. Activation function
 # 4. Learning rate
 # 5. Number of epochs
@@ -99,7 +101,7 @@ class Trainer:
     def validate(self, network):
         # set the network to evaluation mode
         network.eval()
-        x_validation, y_validation = self.validation_data
+        x_validation, _ = self.validation_data
         with torch.no_grad():
             predictions = network(x_validation)
         return predictions
@@ -110,14 +112,21 @@ class Trainer:
                 torch.mean((torch.argmax(predictions, dim=1) == labels).float()) * 100
             )
 
+    def calculate_confidence_interval(self, accuracies):
+        mean = np.mean(accuracies)
+        std = np.std(accuracies)
+        # 95% confidence interval
+        confidence_interval = 1.96 * std / np.sqrt(len(accuracies))
+        return (mean - confidence_interval, mean + confidence_interval)
+
     def run(self):
+        best_model, best_mean, best_confidence_interval = None, 0, (0, 0)
         for epoch in self.epochs:
             for batch_size in self.batch_sizes:
                 for learning_rate in self.learning_rates:
                     for activation_function in self.activation_functions:
                         for hidden_layer_size in self.hidden_layer_sizes:
-                            test_mean = 0
-                            validation_mean = 0
+                            validation_results = []
                             print(
                                 "Training the network with hyperparameters:\nEpoch: {}\nBatch Size: {}\nLearning Rate: {}\nActivation Function: {}\nHidden Layer Size: {}".format(
                                     epoch,
@@ -135,53 +144,64 @@ class Trainer:
                                     activation_function,
                                     hidden_layer_size,
                                 )
-                                predictions = self.test(network)
-                                test_accuracy = self.calculate_accuracy(
-                                    predictions, y_test
-                                )
-                                test_mean += test_accuracy
-                                print(
-                                    "Iteration {} - Accuracy: {:2f}".format(
-                                        i, test_accuracy.item()
-                                    )
-                                )
                                 validation_predictions = self.validate(network)
                                 validation_accuracy = self.calculate_accuracy(
                                     validation_predictions, y_validation
                                 )
-                                validation_mean += validation_accuracy
-                            test_mean = test_mean / 10
-                            validation_mean = validation_mean / 10
-                            print(
-                                "Test mean accuracy of 10 iterations: {:2f}".format(
-                                    test_mean
-                                )
+                                validation_results.append(validation_accuracy)
+                            validation_mean = np.mean(validation_results)
+                            validation_std = np.std(validation_results)
+                            confidence_interval = self.calculate_confidence_interval(
+                                validation_results
                             )
-                            self.results.append(
-                                (
+                            if confidence_interval[0] > best_confidence_interval[1] or (
+                                confidence_interval[0] > best_confidence_interval[1]
+                                and confidence_interval[1] > best_confidence_interval[1]
+                                or validation_mean > best_mean
+                            ):
+                                best_mean = validation_mean
+                                best_confidence_interval = confidence_interval
+                                best_model = [
                                     epoch,
                                     batch_size,
                                     learning_rate,
                                     activation_function,
                                     hidden_layer_size,
-                                    test_mean,
-                                    validation_mean,
-                                )
+                                ]
+                            self.results.append(
+                                {
+                                    "epoch": epoch,
+                                    "batch_size": batch_size,
+                                    "learning_rate": learning_rate,
+                                    "activation_function": activation_function,
+                                    "hidden_layer_sizes": hidden_layer_size,
+                                    "validation_mean": validation_mean,
+                                    "validation_std": validation_std,
+                                }
                             )
+                            print(
+                                "Validation accuracy is: {}\n".format(validation_mean)
+                            )
+        print("Best model paremeters are: {}".format(best_model))
+        network = self.train(*best_model)
+        test_predictions = self.test(network)
+        test_accuracy = self.calculate_accuracy(test_predictions, y_test)
+        print("Test accuracy is: {}".format(test_accuracy))
 
-        filename = "results.txt"
+        filename = "winning_model.pt"
+        torch.save(network.state_dict(), filename)
+        filename = "winning_model.json"
         with open(filename, "w") as f:
-            for result in self.results:
-                f.write(
-                    "Epoch: {}\nBatch Size: {}\nLearning Rate: {}\nActivation Function: {}\nHidden Layer Size: {}\nMean Accuracy: {}\n".format(
-                        result[0],
-                        result[1],
-                        result[2],
-                        result[3],
-                        result[4],
-                        result[5],
-                    )
-                )
+            best_model["test_accuracy"] = test_accuracy
+            best_model["validation_mean"] = best_mean
+            best_model["validation_confidence_interval"] = best_confidence_interval
+            json.dump(best_model, f, indent=4)
+
+        filename = "results.json"
+        with open(filename, "w") as f:
+            json.dump(self.results, f, indent=4)
+
+        print("The program is finished. The results are saved in results.txt file.")
 
 
 x_train, y_train = pickle.load(open("data/mnist_train.data", "rb"))
@@ -208,12 +228,19 @@ x_test = torch.from_numpy(x_test)
 y_test = torch.from_numpy(y_test).to(torch.long)
 
 
-hidden_layer_sizes = [(16,), (32,), (64,), (16, 16), (16, 32)]
+hidden_layer_sizes = [(8,), (16,), (8, 8)]
 activation_functions = [nn.ReLU(), nn.Sigmoid()]  # nn.Tanh()
-learning_rates = [0.1, 0.01, 0.001]
-num_epochs = [10, 20, 40, 50]
-batch_sizes = [16, 32, 64]
-# Total there are 6 * 2 * 3 * 5 * 4 = 720 hyperparameter configurations
+learning_rates = [0.01, 0.001]
+num_epochs = [20, 40]
+batch_sizes = [32]
+# Total there are 3 * 2 * 2 * 2 * 1 = 24 hyperparameter configurations
+
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Running on the GPU")
+else:
+    device = torch.device("cpu")
+    print("Running on the CPU")
 
 trainer = Trainer(
     (x_train, y_train),
