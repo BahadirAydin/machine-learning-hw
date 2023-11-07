@@ -153,6 +153,7 @@ class Trainer:
                             confidence_interval = self.calculate_confidence_interval(
                                 validation_results
                             )
+                            activation_function_str = activation_function.__str__()
                             if confidence_interval[0] > best_confidence_interval[1] or (
                                 confidence_interval[0] > best_confidence_interval[1]
                                 and confidence_interval[1] > best_confidence_interval[1]
@@ -166,9 +167,9 @@ class Trainer:
                                     "learning_rate": learning_rate,
                                     "activation_function": activation_function,
                                     "hidden_layer_sizes": hidden_layer_size,
+                                    "activation_function_str": activation_function_str,
                                 }
 
-                            activation_function_str = "ReLU" if activation_function == nn.ReLU() else "Sigmoid"
                             self.results.append(
                                 {
                                     "epoch": epoch,
@@ -186,7 +187,13 @@ class Trainer:
                                 "Validation accuracy is: {}\n".format(validation_mean)
                             )
         print("Best model paremeters are: {}".format(best_model))
-        network = self.train(best_model["epoch"], best_model["batch_size"], best_model["learning_rate"], best_model["activation_function"], best_model["hidden_layer_sizes"])
+        network = self.train(
+            best_model["epoch"],
+            best_model["batch_size"],
+            best_model["learning_rate"],
+            best_model["activation_function"],
+            best_model["hidden_layer_sizes"],
+        )
         test_predictions = self.test(network)
         test_accuracy = self.calculate_accuracy(test_predictions, y_test)
         print("Test accuracy is: {}".format(test_accuracy))
@@ -242,7 +249,6 @@ learning_rates = [0.01, 0.001]
 num_epochs = [15, 30]
 batch_sizes = [64]
 # Total there are 3 * 2 * 2 * 2 * 1 = 24 hyperparameter configurations
-
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
