@@ -1,0 +1,20 @@
+{
+    "epoch": 30,
+    "batch_size": 64,
+    "learning_rate": 0.01,
+    "hidden_layer_sizes": [
+        16
+    ],
+    "activation_function_str": "ReLU()",
+    "test_accuracy_mean": 90.43999481201172,
+    "test_accuracy_std": 0.6415895223617554,
+    "test_confidence_interval": [
+        90.04233350615344,
+        90.83765611787
+    ],
+    "validation_mean": 90.18207550048828,
+    "validation_confidence_interval": [
+        89.90634722665236,
+        90.4578037743242
+    ]
+}

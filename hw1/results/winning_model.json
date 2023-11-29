@@ -1,0 +1,15 @@
+{
+    "epoch": 30,
+    "batch_size": 64,
+    "learning_rate": 0.01,
+    "hidden_layer_sizes": [
+        16
+    ],
+    "test_accuracy": 89.60000610351562,
+    "validation_mean": 90.7542953491211,
+    "validation_confidence_interval": [
+        90.51170039463,
+        90.99689030361219
+    ],
+    "activation_function_str": "RelU"
+}
