@@ -36,16 +36,8 @@ class KMeans:
     def initialize_centers(self):
         """Initializes the cluster centers"""
         # randomly select K data points as cluster centers
-        random_points = []
-        for k in range(self.K):
-            x = random.choice(self.dataset)
-            p = random.choice(x)
-            while p in random_points:
-                x = random.choice(self.dataset)
-                p = random.choice(x)
-
-            self.cluster_centers[k] = p
-            random_points.append(self.cluster_centers[k])
+        indices = np.random.choice(len(self.dataset), self.K, replace=False)
+        self.cluster_centers = {i: self.dataset[indices[i]] for i in range(self.K)}
 
     def update_clusters(self, X):
         predictions = []
