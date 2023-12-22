@@ -62,7 +62,7 @@ class DecisionTree:
         # SLIDES PAGE 14
         average_entropy = 0.0
         index = self.features.index(attribute)
-        col = np.array(self.dataset)[:, index]
+        col = np.array(dataset)[:, index]
         keys_and_yes = {}
         for i in range(len(col)):
             if col[i] not in keys_and_yes:
@@ -78,17 +78,15 @@ class DecisionTree:
 
     def calculate_information_gain__(self, dataset, labels, attribute):
         # SLIDES PAGE 15
-        entropy_of_set = self.calculate_entropy__(self.dataset, self.labels)
-        avg_entropy = self.calculate_average_entropy__(
-            self.dataset, self.labels, attribute
-        )
+        entropy_of_set = self.calculate_entropy__(dataset, labels)
+        avg_entropy = self.calculate_average_entropy__(dataset, labels, attribute)
         return float(entropy_of_set - avg_entropy)
 
     def calculate_intrinsic_information__(self, dataset, labels, attribute):
         # SLIDES PAGE 24
         intrinsic_info = 0.0
         index = self.features.index(attribute)
-        col = np.array(self.dataset)[:, index]
+        col = np.array(dataset)[:, index]
         uniq, counts = np.unique(col, return_counts=True)
         for i in range(len(uniq)):
             intrinsic_info += (-counts[i] / len(col)) * np.log2(counts[i] / len(col))
@@ -102,19 +100,18 @@ class DecisionTree:
 
     def ID3__(self, dataset, labels, used_attributes):
         uniq = np.unique(labels)
-        if len(uniq) == 1:
-            return TreeLeafNode(dataset, labels[0])
-
-        if len(used_attributes) == len(self.features):
-            majority_label = np.argmax(np.bincount(labels))
+        if len(uniq) <= 1 or len(used_attributes) == len(self.features):
+            uniq, counts = np.unique(labels, return_counts=True)
+            majority_label = uniq[np.argmax(counts)]
             return TreeLeafNode(dataset, majority_label)
 
-        entropy = self.calculate_entropy__(dataset, labels)
         best_attribute = None
         best_gain = 0
 
+        # FIND THE SPLIT ATTRIBUTE
+
+        gain = 0
         for i in range(len(self.features)):
-            gain = 0.0
             if self.features[i] in used_attributes:
                 continue
             if self.criterion == "information gain":
@@ -127,22 +124,34 @@ class DecisionTree:
                 best_gain = gain
                 best_attribute = self.features[i]
 
-        if best_attribute is None:
-            return TreeLeafNode(dataset, labels)
+        node = TreeNode(best_attribute)
 
-        # TODO
+        used_attributes.append(best_attribute)
+        index = self.features.index(best_attribute)
+        col = np.array(dataset)[:, index]
+        uniq = np.unique(col)
+
+        # CALL ID3 RECURSIVELY FOR EACH VALUE OF THE SPLIT ATTRIBUTE
+
+        for i in range(len(uniq)):
+            new_dataset = []
+            new_labels = []
+            for j in range(len(dataset)):
+                if dataset[j][index] == uniq[i]:
+                    new_dataset.append(dataset[j])
+                    new_labels.append(labels[j])
+            node.subtrees[uniq[i]] = self.ID3__(
+                new_dataset, new_labels, used_attributes.copy()
+            )
+
+        return node
 
     def predict(self, x):
-        """
-        :param x: a data instance, 1-dimensional Python array
-        :return: predicted label of x
-
-        If a leaf node contains multiple labels, the majority label should be returned as the predicted label
-        """
         current_node = self.root
 
         while isinstance(current_node, TreeNode):
-            attribute_value = x[self.features.index(current_node.attribute)]
+            index = self.features.index(current_node.attribute)
+            attribute_value = x[index]
             if attribute_value in current_node.subtrees:
                 current_node = current_node.subtrees[attribute_value]
             else:
