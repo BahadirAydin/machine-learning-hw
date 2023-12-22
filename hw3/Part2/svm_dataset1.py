@@ -11,9 +11,9 @@ X, Y = pickle.load(open("../data/part2_dataset1.data", "rb"))
 
 configurations = [
     {"C": 1, "kernel": "rbf"},
-    {"C": 2, "kernel": "rbf"},
+    {"C": 10, "kernel": "rbf"},
     {"C": 1, "kernel": "linear"},
-    {"C": 2, "kernel": "linear"},
+    {"C": 10, "kernel": "linear"},
 ]
 # default value of C is 1 in SVC
 # default value of kernel is rbf in SVC
